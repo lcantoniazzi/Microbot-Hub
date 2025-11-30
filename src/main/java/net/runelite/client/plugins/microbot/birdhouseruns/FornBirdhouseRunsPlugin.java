@@ -12,6 +12,9 @@ import net.runelite.client.plugins.microbot.pluginscheduler.api.SchedulablePlugi
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.AndCondition;
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.LogicalCondition;
 import net.runelite.client.plugins.microbot.pluginscheduler.event.PluginScheduleEntryPostScheduleTaskEvent;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -51,6 +54,10 @@ public class FornBirdhouseRunsPlugin extends Plugin implements SchedulablePlugin
         if (overlayManager != null) {
             overlayManager.add(fornBirdhouseRunsOverlay);
         }
+        Rs2AntibanSettings.naturalMouse = true;
+        Rs2Antiban.antibanSetupTemplates.applyHunterSetup();
+        Rs2Antiban.setActivity(Activity.GENERAL_HUNTER);
+        Rs2Antiban.activateAntiban();
         fornBirdhouseRunsScript.run();
     }
 
