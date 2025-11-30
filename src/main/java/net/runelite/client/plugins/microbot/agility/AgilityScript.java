@@ -13,6 +13,8 @@ import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
@@ -65,6 +67,7 @@ public class AgilityScript extends Script
 		Microbot.enableAutoRunOn = true;
 		Rs2Antiban.resetAntibanSettings();
 		Rs2Antiban.antibanSetupTemplates.applyAgilitySetup();
+        Rs2Antiban.setActivityIntensity(ActivityIntensity.LOW);
 		startPoint = plugin.getCourseHandler().getStartPoint();
 		lastAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
 		mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -219,6 +222,7 @@ public class AgilityScript extends Script
 					// Wait for completion - this now returns quickly on XP drop
 					boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp, 
 						Microbot.getClient().getLocalPlayer().getWorldLocation().getPlane());
+                    Microbot.log("Waiting Completed: " + completed);
 					
 					if (!completed) {
 						// Timeout occurred - log warning (throttled to once per 30 seconds)
