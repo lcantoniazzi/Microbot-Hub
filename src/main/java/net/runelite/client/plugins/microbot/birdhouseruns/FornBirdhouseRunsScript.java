@@ -1,15 +1,16 @@
 package net.runelite.client.plugins.microbot.birdhouseruns;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.Notification;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.accountselector.AutoLoginPlugin;
 import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsInfo.states;
 import net.runelite.client.plugins.microbot.birdhouseruns.enums.Log;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -17,16 +18,21 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
-import static net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsInfo.*;
+import static net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsInfo.botStatus;
 
 @Slf4j
 public class FornBirdhouseRunsScript extends Script {
@@ -34,12 +40,13 @@ public class FornBirdhouseRunsScript extends Script {
     private static final WorldPoint birdhouseLocation2 = new WorldPoint(3768, 3761, 0);
     private static final WorldPoint birdhouseLocation3 = new WorldPoint(3677, 3882, 0);
     private static final WorldPoint birdhouseLocation4 = new WorldPoint(3679, 3815, 0);
+    private final FornBirdhouseRunsPlugin plugin;
+    private final FornBirdhouseRunsConfig config;
+    private List<Rs2ItemModel> initialItems;
     private boolean initialized;
     private String setupErrorMessage = "";
     @Inject
     private Notifier notifier;
-    private final FornBirdhouseRunsPlugin plugin;
-    private final FornBirdhouseRunsConfig config;
 
     @Inject
     FornBirdhouseRunsScript(FornBirdhouseRunsPlugin plugin, FornBirdhouseRunsConfig config) {
@@ -52,17 +59,16 @@ public class FornBirdhouseRunsScript extends Script {
         botStatus = states.GEARING;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn()) return;
-             
+                if (!Microbot.isLoggedIn()) attemptAutoLoginWithRetries();
+                sleepUntil(LoginManager::isLoggedIn);
                 if (!initialized) {
                     if (Rs2Player.getQuestState(Quest.BONE_VOYAGE) != QuestState.FINISHED) {
-                        log.error("Birdhouse run failed, you need to finish the quest 'BONE VOYAGE'");
                         plugin.reportFinished("Birdhouse run failed, you need to finish the quest 'BONE VOYAGE'", false);
                         this.shutdown();
                         return;
                     }
                     initialized = true;
-                    
+
                     if (config.useInventorySetup()) {
                         boolean hasInventorySetup = config.inventorySetup() != null && Rs2InventorySetup.isInventorySetup(config.inventorySetup().getName());
                         if (hasInventorySetup) {
@@ -86,7 +92,6 @@ public class FornBirdhouseRunsScript extends Script {
                     } else {
                         // Auto bank withdrawal
                         if (!setupManualInventory()) {
-                            log.error("Birdhouse run failed: {}", setupErrorMessage);
                             plugin.reportFinished("Birdhouse run failed: " + setupErrorMessage, false);
                             this.shutdown();
                             return;
@@ -98,7 +103,7 @@ public class FornBirdhouseRunsScript extends Script {
 
                 switch (botStatus) {
                     case TELEPORTING:
-                        Rs2Walker.walkTo(new WorldPoint(3764, 3869, 1), 5);
+                        Rs2Walker.walkTo(new WorldPoint(3764, 3879, 1), 5);
                         botStatus = states.VERDANT_TELEPORT;
                         break;
                     case VERDANT_TELEPORT:
@@ -153,7 +158,20 @@ public class FornBirdhouseRunsScript extends Script {
                         break;
                     case FINISHING:
                         emptyNests();
-                        
+
+                        if (Rs2Magic.canCast(MagicAction.VARROCK_TELEPORT)) {
+                            Rs2Magic.cast(MagicAction.VARROCK_TELEPORT, "grand exchange",2);
+                            sleepUntil(() -> Rs2Bank.getNearestBank().equals(BankLocation.GRAND_EXCHANGE));
+                            Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
+                            if (!Rs2Bank.isOpen()) Rs2Bank.openBank();
+                            if (initialItems.size() > 0)
+                            {
+                                Rs2Bank.depositAllExcept(initialItems.stream().map(Rs2ItemModel::getName).collect(Collectors.toList()));
+                            } else {
+                                Rs2Bank.depositAll();
+                            }
+                        }
+
                         if (config.goToBank()) {
                             Rs2Walker.walkTo(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint());
                             if (!Rs2Bank.isOpen()) Rs2Bank.openBank();
@@ -162,7 +180,7 @@ public class FornBirdhouseRunsScript extends Script {
 
                         botStatus = states.FINISHED;
                         notifier.notify(Notification.ON, "Birdhouse run is finished.");
-                        plugin.reportFinished("Birdhouse run finished",true);
+                        plugin.reportFinished("Birdhouse run finished", true);
                         this.shutdown();
                         break;
                     case FINISHED:
@@ -236,83 +254,110 @@ public class FornBirdhouseRunsScript extends Script {
     private boolean setupManualInventory() {
         // Walk to nearest bank
         Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
-        
-        // Open bank
-        if (!Rs2Bank.openBank()) {
-            setupErrorMessage = "Could not open bank";
-            log.error(setupErrorMessage);
-            return false;
+
+        int bankAttempts = 0;
+        // Open
+        while(!Rs2Bank.isOpen()) {
+            if (!Rs2Bank.openBank()) {
+                bankAttempts++;
+            }
+
+            if (bankAttempts >= 3) {
+                Microbot.log("Failed to open bank");
+                return false;
+            }
         }
-        sleepUntil(Rs2Bank::isOpen);
-        
-        // Deposit all
-        Rs2Bank.depositAll();
-        Rs2Inventory.waitForInventoryChanges(5000);
-        
+
+        if(Rs2Inventory.fullSlotCount() > 8) {
+            // Deposit all
+            Rs2Bank.depositAll();
+            Rs2Inventory.waitForInventoryChanges(5000);
+        }
+
+        initialItems = Rs2Inventory.all();
+
         // Withdraw chisel
-        if (!Rs2Bank.withdrawX(ItemID.CHISEL, 1)) {
+        if (!Rs2Bank.withdrawOne(ItemID.CHISEL)) {
             setupErrorMessage = "Missing chisel in bank";
-            log.error(setupErrorMessage);
+            Microbot.log(setupErrorMessage);
             return false;
         }
-        
+
         // Withdraw hammer
-        if (!Rs2Bank.withdrawX(ItemID.HAMMER, 1)) {
+        if (!Rs2Bank.withdrawOne(ItemID.HAMMER)) {
             setupErrorMessage = "Missing hammer in bank";
-            log.error(setupErrorMessage);
+            Microbot.log(setupErrorMessage);
             return false;
         }
-        
+
         // Withdraw digsite pendant (prefer lower charges)
         boolean pendantWithdrawn = false;
         List<Integer> pendantIds = Arrays.asList(
-            ItemID.NECKLACE_OF_DIGSITE_1,
-            ItemID.NECKLACE_OF_DIGSITE_2,
-            ItemID.NECKLACE_OF_DIGSITE_3,
-            ItemID.NECKLACE_OF_DIGSITE_4,
-            ItemID.NECKLACE_OF_DIGSITE_5
+                ItemID.NECKLACE_OF_DIGSITE_1,
+                ItemID.NECKLACE_OF_DIGSITE_2,
+                ItemID.NECKLACE_OF_DIGSITE_3,
+                ItemID.NECKLACE_OF_DIGSITE_4,
+                ItemID.NECKLACE_OF_DIGSITE_5
         );
-        
+
         for (int pendantId : pendantIds) {
             if (!isRunning()) break;
-            if (Rs2Bank.withdrawX(pendantId, 1)) {
+            if (Rs2Bank.withdrawOne(pendantId)) {
                 pendantWithdrawn = true;
                 break;
             }
         }
-        
+
         if (!pendantWithdrawn) {
             setupErrorMessage = "Missing digsite pendant in bank";
-            log.error(setupErrorMessage);
+            Microbot.log(setupErrorMessage);
             return false;
         }
-        
+
         // Withdraw logs
-		Log selectedLogType = config.logType();
+        Log selectedLogType = config.logType();
         // Check if bank has enough logs first
         int logCount = Rs2Bank.count(selectedLogType.getItemId());
         if (logCount < 4) {
             setupErrorMessage = "Need 4 " + selectedLogType.getItemName().toLowerCase() + " but only have " + logCount + " in bank";
-            log.error(setupErrorMessage);
+            Microbot.log(setupErrorMessage);
             return false;
         }
-        if (!Rs2Bank.withdrawX(selectedLogType.getItemId(), 4)) {
+        if (!Rs2Bank.withdrawOne(selectedLogType.getItemId()) || !Rs2Bank.withdrawOne(selectedLogType.getItemId()) || !Rs2Bank.withdrawOne(selectedLogType.getItemId()) || !Rs2Bank.withdrawOne(selectedLogType.getItemId())) {
             setupErrorMessage = "Failed to withdraw " + selectedLogType.getItemName().toLowerCase();
-            log.error(setupErrorMessage);
+            Microbot.log(setupErrorMessage);
             return false;
         }
-        
+
         // Withdraw seeds (smart selection)
         boolean seedsWithdrawn = withdrawSeeds();
         if (!seedsWithdrawn) {
             // setupErrorMessage is set in withdrawSeeds
             return false;
         }
-        
+
+        if (!Rs2Bank.withdrawOne(ItemID.FIRERUNE)) {
+            setupErrorMessage = "Missing fire runes in bank";
+            Microbot.log(setupErrorMessage);
+            return false;
+        }
+
+        if (!Rs2Bank.withdrawOne(ItemID.AIRRUNE) || !Rs2Bank.withdrawOne(ItemID.AIRRUNE) || !Rs2Bank.withdrawOne(ItemID.AIRRUNE)) {
+            setupErrorMessage = "Missing air runes in bank";
+            Microbot.log(setupErrorMessage);
+            return false;
+        }
+
+        if (!Rs2Bank.withdrawOne(ItemID.LAWRUNE)) {
+            setupErrorMessage = "Missing law runes in bank";
+            Microbot.log(setupErrorMessage);
+            return false;
+        }
+
         // Close bank
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
-        
+
         log.info("Inventory setup complete - starting birdhouse run");
         return true;
     }
@@ -320,16 +365,16 @@ public class FornBirdhouseRunsScript extends Script {
     private boolean withdrawSeeds() {
         // Priority list of seeds for birdhouses
         List<Integer> seedIds = Arrays.asList(
-            ItemID.POTATO_SEED,
-            ItemID.ONION_SEED,
-            ItemID.CABBAGE_SEED,
-            ItemID.TOMATO_SEED,
-            ItemID.BARLEY_SEED,
-            ItemID.HAMMERSTONE_HOP_SEED,
-            ItemID.YANILLIAN_HOP_SEED,
-            ItemID.KRANDORIAN_HOP_SEED
+                ItemID.POTATO_SEED,
+                ItemID.ONION_SEED,
+                ItemID.CABBAGE_SEED,
+                ItemID.TOMATO_SEED,
+                ItemID.BARLEY_SEED,
+                ItemID.HAMMERSTONE_HOP_SEED,
+                ItemID.YANILLIAN_HOP_SEED,
+                ItemID.KRANDORIAN_HOP_SEED
         );
-        
+
         for (int seedId : seedIds) {
             if (!isRunning()) break;
             // Check if bank has enough BEFORE trying to withdraw
@@ -340,10 +385,104 @@ public class FornBirdhouseRunsScript extends Script {
                 }
             }
         }
-        
+
         // If we get here, no seed type had 40+ available
         setupErrorMessage = "Need 40 seeds but no birdhouse seed type has 40+ in bank";
-        log.error(setupErrorMessage);
+        Microbot.log(setupErrorMessage);
         return false;
+    }
+
+    private boolean attemptAutoLoginWithRetries() {
+        if (!isAutoLoginPluginAvailable()) {
+            Microbot.log("AutoLoginPlugin not available - skipping auto login attempts");
+            return false;
+        }
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                Microbot.log("AutoLogin attempt " + attempt + "/" + 2);
+
+                if (Microbot.isLoggedIn()) {
+                    Microbot.log("Player already logged in during auto login attempt " + attempt);
+                    disableAutoLoginPlugin();
+                    return true;
+                }
+
+                // Enable AutoLoginPlugin
+                enableAutoLoginPlugin();
+
+                // Wait for login to complete (up to 60 seconds)
+                long loginStart = System.currentTimeMillis();
+                while (!Microbot.isLoggedIn() && System.currentTimeMillis() - loginStart < 60000) {
+                    sleep(1000);
+                }
+
+                if (Microbot.isLoggedIn()) {
+                    Microbot.log("Successfully logged in using AutoLoginPlugin on attempt " + attempt);
+                    sleep(5000 + (int) Math.floor(Math.random()*15000));
+                    disableAutoLoginPlugin();
+                    return true;
+                }
+
+                Microbot.log("AutoLogin attempt " + attempt + " timed out");
+
+                // Wait before retry (except on last attempt)
+                if (attempt < 2) {
+                    sleep(5000);
+                }
+
+            } catch (Exception e) {
+                Microbot.log("Error during AutoLogin attempt " + attempt + ": " + e.getMessage());
+                if (attempt < 2) {
+                    sleep(5000);
+                }
+            }
+        }
+
+        disableAutoLoginPlugin();
+        return false; // All auto login attempts failed
+    }
+
+    /**
+     * Checks if the AutoLoginPlugin is available and can be used
+     */
+    private boolean isAutoLoginPluginAvailable() {
+        try {
+            return Microbot.getPlugin(AutoLoginPlugin.class.getName()) != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void enableAutoLoginPlugin() {
+        try {
+            AutoLoginPlugin autoLoginPlugin = (AutoLoginPlugin) Microbot.getPlugin(AutoLoginPlugin.class.getName());
+            if (autoLoginPlugin != null && !Microbot.isPluginEnabled(autoLoginPlugin.getClass())) {
+                Microbot.getClientThread().runOnSeperateThread(() -> {
+                    Microbot.startPlugin(autoLoginPlugin);
+                    return true;
+                });
+                Microbot.log("AutoLoginPlugin enabled for break login");
+            }
+        } catch (Exception e) {
+            Microbot.log("Failed to enable AutoLoginPlugin: " + e.getMessage());
+        }
+    }
+
+    private void disableAutoLoginPlugin() {
+        try {
+            if (isAutoLoginPluginAvailable()) {
+                AutoLoginPlugin autoLoginPlugin = (AutoLoginPlugin) Microbot.getPlugin(AutoLoginPlugin.class.getName());
+                if (autoLoginPlugin != null && Microbot.isPluginEnabled(autoLoginPlugin.getClass())) {
+                    Microbot.getClientThread().runOnSeperateThread(() -> {
+                        Microbot.stopPlugin(autoLoginPlugin);
+                        return true;
+                    });
+                    Microbot.log("AutoLoginPlugin disabled after use");
+                }
+            }
+        } catch (Exception e) {
+            Microbot.log("Failed to disable AutoLoginPlugin: " + e.getMessage());
+        }
     }
 }
