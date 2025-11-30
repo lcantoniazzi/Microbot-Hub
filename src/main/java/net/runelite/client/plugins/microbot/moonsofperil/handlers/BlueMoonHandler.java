@@ -22,6 +22,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
@@ -69,7 +70,7 @@ public class BlueMoonHandler implements BaseHandler {
         if (!Rs2Widget.isWidgetVisible(bossHealthBarWidgetID)) {
             BreakHandlerScript.setLockState(true);
             boss.walkToBoss(equipmentNormal, bossName, bossLobbyLocation);
-            boss.fightPreparation(equipmentNormal);
+            boss.fightPreparation("Crush");
             boss.enterBossArena(bossName, bossStatueObjectID, bossLobbyLocation);
             sleepUntil(() -> Rs2Widget.isWidgetVisible(bossHealthBarWidgetID),5_000);
         }
@@ -88,9 +89,9 @@ public class BlueMoonHandler implements BaseHandler {
             sleep(300);
         }
         if (debugLogging) {Microbot.log("The " + bossName + "boss health bar widget is no longer visible, the fight must have ended.");}
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         sleep(2400);
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.rechargeRunEnergy();
         BreakHandlerScript.setLockState(false);
         return State.IDLE;
@@ -106,7 +107,7 @@ public class BlueMoonHandler implements BaseHandler {
     public void specialAttack1Sequence()
     {
         sleep(2_400);
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         if (debugLogging) {Microbot.log("Running to safe tile and waiting out the sequence");}
         Rs2Walker.walkFastCanvas(AFTER_TORNADO, true);
         boss.eatIfNeeded();
@@ -118,7 +119,7 @@ public class BlueMoonHandler implements BaseHandler {
     public void specialAttack2IdleSequence()
     {
         sleep(2_400);
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         if (debugLogging) {Microbot.log("Running to safe tile and waiting out the sequence");}
         Rs2Walker.walkFastCanvas(AFTER_GLACIER, true);
         boss.eatIfNeeded();
@@ -186,7 +187,7 @@ public class BlueMoonHandler implements BaseHandler {
         long phaseStart = System.currentTimeMillis();
 
         if (debugLogging) {Microbot.log(ts.get() + "Entering attack-and-dodge loop (timeout " + PHASE_TIMEOUT_MS + " ms)");}
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
 
         Rs2InventorySetup invSetup = equipmentNormal;
         while (!invSetup.doesEquipmentMatch() &&

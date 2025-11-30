@@ -139,7 +139,6 @@ public class ResupplyHandler implements BaseHandler {
             }
             if (debugLogging) {Microbot.log("Inventory should now be full of fish");}
             sleep(600, 900);
-            Rs2Inventory.drop(ItemID.BIG_NET);
         }
 
     }

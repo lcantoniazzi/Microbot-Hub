@@ -2,12 +2,17 @@ package net.runelite.client.plugins.microbot.moonsofperil;
 
 import javax.inject.Inject;
 import lombok.Getter;
+import net.runelite.api.Prayer;
+import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
+import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
+import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;

@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -68,7 +69,7 @@ public class BloodMoonHandler implements BaseHandler {
         if (!Rs2Widget.isWidgetVisible(bossHealthBarWidgetID)) {
             BreakHandlerScript.setLockState(true);
             boss.walkToBoss(equipmentNormal, bossName, bossLobbyLocation);
-            boss.fightPreparation(equipmentNormal);
+            boss.fightPreparation("Slash");
             boss.enterBossArena(bossName, bossStatueObjectID, bossLobbyLocation);
             sleepUntil(() -> Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 5_000);
         }
@@ -87,9 +88,9 @@ public class BloodMoonHandler implements BaseHandler {
             sleep(300);
         }
         if (debugLogging) {Microbot.log("The " + bossName + "boss health bar widget is no longer visible, the fight must have ended.");}
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), false, true);
         sleep(2400);
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         BossHandler.rechargeRunEnergy();
         BreakHandlerScript.setLockState(false);
         return State.IDLE;
@@ -114,7 +115,7 @@ public class BloodMoonHandler implements BaseHandler {
     public void specialAttack2Sequence() {
         if (debugLogging) {Microbot.log("The moonfire has spawned – We've entered Special Attack 2, the Blood Rain Sequence");}
         sleepUntil(() -> !Rs2Player.isAnimating(),5000);
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), false, true);
         Rs2Walker.walkFastCanvas(afterRainTile,true);
         sleepUntil(() -> Rs2Player.getWorldLocation().equals(afterRainTile));
         while (isSpecialAttack2Sequence()) {
@@ -139,7 +140,7 @@ public class BloodMoonHandler implements BaseHandler {
     /**  Blood Moon – Blood Jaguar Special Attack Handler */
     public void specialAttack1Sequence() {
         if (debugLogging) {Microbot.log("Entering Special Attack Sequence: Blood Jaguar");}
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), false, true);
         final long startMs = System.currentTimeMillis();
 
         /* 1  find the sigil NPC (2×2, SW tile = sigilLoc) */

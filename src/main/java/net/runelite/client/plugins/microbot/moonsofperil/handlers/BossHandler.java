@@ -2,8 +2,10 @@ package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.moonsofperil.Utilities;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -79,8 +81,8 @@ public final class BossHandler {
      * 2. Eats food if required
      * 3. Drinks potions if required
      * 4. Turns on Player's best offensive melee prayer*/
-    public void fightPreparation(Rs2InventorySetup inventorySetup) {
-        equipInventorySetup(inventorySetup);
+    public void fightPreparation(String attackStyle) {
+        Utilities.changeAttackStyle(attackStyle);
         sleep(600);
         eatIfNeeded();
         sleep(600);
@@ -123,14 +125,14 @@ public final class BossHandler {
      * Turns on Player's best offensive melee prayer and returns true
      */
     public static void meleePrayerOn() {
-        Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), true);
+        Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), true, true);
     }
 
     /**
      * Returns true if the sigil NPC (the highlighted attack tile) is present
      */
     public static boolean isNormalAttackSequence(int sigilNpcID) {
-        return Rs2Npc.getNpc(sigilNpcID) != null;
+        return (Rs2Npc.getNpc(sigilNpcID) != null && Rs2Npc.getNpc(NpcID.PMOON_BOSS_JAGUAR) == null);
     }
 
     /**

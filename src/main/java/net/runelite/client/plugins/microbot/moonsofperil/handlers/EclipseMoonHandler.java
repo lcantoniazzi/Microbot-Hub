@@ -24,6 +24,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class EclipseMoonHandler implements BaseHandler {
@@ -69,7 +70,7 @@ public class EclipseMoonHandler implements BaseHandler {
         if (!Rs2Widget.isWidgetVisible(bossHealthBarWidgetID)) {
             BreakHandlerScript.setLockState(true);
             boss.walkToBoss(equipmentNormal, bossName, bossLobbyLocation);
-            boss.fightPreparation(equipmentNormal);
+            boss.fightPreparation("Slash");
             boss.enterBossArena(bossName, bossStatueObjectID, bossLobbyLocation);
             sleepUntil(() -> Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 5_000);
         }
@@ -87,8 +88,9 @@ public class EclipseMoonHandler implements BaseHandler {
             sleep(300);
         }
         if (debugLogging) {Microbot.log("The " + bossName + "boss health bar widget is no longer visible, the fight must have ended.");}
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         sleep(2400);
+        Rs2Prayer.disableAllPrayers(true);
         net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.rechargeRunEnergy();
         BreakHandlerScript.setLockState(false);
         return State.IDLE;
@@ -99,13 +101,16 @@ public class EclipseMoonHandler implements BaseHandler {
      */
     public boolean isSpecialAttack1Sequence() {
         Rs2NpcModel eclipseMoonShield = Rs2Npc.getNpc(NpcID.PMOON_BOSS_ECLIPSE_MOON_SHIELD);
-        return eclipseMoonShield != null && Rs2Npc.getNpc(sigilNpcID) == null;
+        boolean isSpecial1 = eclipseMoonShield != null && Rs2Npc.getNpc(sigilNpcID) == null;
+        if (isSpecial1)
+            Microbot.log("Determined it is special attack sequence 1.");
+        return isSpecial1;
     }
 
     /**  Eclipse – Moon Shield Special-Attack Handler */
     public void specialAttack1Sequence()
     {
-        Rs2Prayer.disableAllPrayers();
+        Rs2Prayer.disableAllPrayers(true);
         WorldPoint spawn = Rs2Npc.getNpc(NpcID.PMOON_BOSS_ECLIPSE_MOON_SHIELD).getWorldLocation();
         if (debugLogging) {Microbot.log("Exact Moonshield location = " + spawn);}
         /*if we enter arena mid attack phase, bail out*/
@@ -172,20 +177,22 @@ public class EclipseMoonHandler implements BaseHandler {
 
         // 1. Captures the conditions required for the start of the special attack sequence.
         if (playerTile.equals(center) && Rs2Player.getAnimation() == AnimationID.HUMAN_TROLL_FLYBACK_MERGE) {
+            Microbot.log("Determined it is special attack sequence 2 and it just started.");
             if (debugLogging) {Microbot.log("Player located on center tile and knock back animation – entering Special Attack 2");}
             sleepUntil(() -> Rs2Player.getAnimation() != AnimationID.HUMAN_TROLL_FLYBACK_MERGE);
             if (debugLogging) {Microbot.log("Knockback animation stopped. Clones are about to spawn");}
             boss.equipInventorySetup(equipmentClones);
             boss.eatIfNeeded();
             boss.drinkIfNeeded();
-            net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.meleePrayerOn();
+            Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), true, true);
             return true;
         }
 
         // 2. Captures the conditions required if we spawn into the arena midway through the special attack phase.
         if (playerTile.equals(center) && bossNPC != null && Rs2Npc.getNpc(sigilNpcID) == null && !bossNPC.getLocalLocation().equals(Rs2LocalPoint.fromWorldInstance(center))) {
+            Microbot.log("Determined it is special attack sequence 2 and we entered part way through.");
             boss.equipInventorySetup(equipmentClones);
-            BossHandler.meleePrayerOn();
+            Rs2Prayer.toggle(Objects.requireNonNull(Rs2Prayer.getBestMeleePrayer()), true, true);
             return true;
         }
 

@@ -14,6 +14,9 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -61,6 +64,10 @@ public class MoonsOfPerilPlugin extends Plugin {
         if (overlayManager != null) {
             overlayManager.add(moonsOfPerilOverlay);
         }
+        Rs2AntibanSettings.naturalMouse = true;
+        Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
+        Rs2Antiban.setActivity(Activity.MOONS_OF_PERIL);
+        Rs2Antiban.activateAntiban();
         moonsOfPerilScript.run();
         Rs2Tile.init();
         this.scriptStartTime = Instant.now();
